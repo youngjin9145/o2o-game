@@ -31,7 +31,7 @@ jobs:
       run: flutter config --enable-web
       
     - name: Build web app
-      run: flutter build web --release --base-href "/seogwipo/"
+      run: flutter build web --release --base-href "/o2o-game/"
       
     - name: Setup Pages
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
