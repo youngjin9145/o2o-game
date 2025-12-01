@@ -1,7 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 
-import '../database/supabase_service.dart';
+import '../database/local_storage_service.dart';
 import '../services/auth_service.dart';
 import '../../features/home/data/repositories/portfolio_repository_impl.dart';
 import '../../features/home/domain/repositories/portfolio_repository.dart';
@@ -14,9 +14,11 @@ final GetIt getIt = GetIt.instance;
 
 @InjectableInit()
 Future<void> configureDependencies() async {
-  // Database Service
-  getIt.registerLazySingleton<SupabaseService>(
-    () => SupabaseService(),
+  // Local Storage Service
+  final localStorageService = LocalStorageService();
+  await localStorageService.initialize();
+  getIt.registerLazySingleton<LocalStorageService>(
+    () => localStorageService,
   );
 
   // Auth Service

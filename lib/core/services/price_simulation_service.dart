@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:get_it/get_it.dart';
-import '../database/supabase_service.dart';
+import '../database/local_storage_service.dart';
 import '../models/user.dart' as app_user;
 import '../models/portfolio.dart';
 import '../models/trade_record.dart';
@@ -16,7 +16,7 @@ class PriceSimulationService {
 
   Timer? _simulationTimer;
   final Random _random = Random();
-  final SupabaseService _supabaseService = GetIt.instance<SupabaseService>();
+  final LocalStorageService _storageService = GetIt.instance<LocalStorageService>();
   final Uuid _uuid = const Uuid();
 
   // 실시간 데이터를 위한 StreamController들
@@ -79,8 +79,8 @@ class PriceSimulationService {
   Future<void> _loadUserData() async {
     try {
       // Supabase에서 포트폴리오와 거래기록 로드
-      _portfolios = await _supabaseService.getPortfoliosByUserId(_currentUser.id);
-      _tradeRecords = await _supabaseService.getTradeRecordsByUserId(_currentUser.id);
+      _portfolios = await _storageService.getPortfoliosByUserId(_currentUser.id);
+      _tradeRecords = await _storageService.getTradeRecordsByUserId(_currentUser.id);
       
       // 스트림에 전송
       _portfoliosController.add(_portfolios);
@@ -189,7 +189,7 @@ class PriceSimulationService {
         updatedPortfolios.add(updatedPortfolio);
         
         // Supabase에 업데이트 (비동기로 처리)
-        _supabaseService.updatePortfolio(updatedPortfolio).catchError((e) {
+        _storageService.updatePortfolio(updatedPortfolio).catchError((e) {
           print('포트폴리오 업데이트 실패: $e');
         });
       }
@@ -248,7 +248,7 @@ class PriceSimulationService {
       _userController.add(_currentUser);
       
       // Supabase에 업데이트 (비동기로 처리)
-      _supabaseService.updateUser(updatedUser).catchError((e) {
+      _storageService.updateUser(updatedUser).catchError((e) {
         print('사용자 업데이트 실패: $e');
       });
     } catch (e) {
@@ -300,7 +300,7 @@ class PriceSimulationService {
         tradeDate: DateTime.now(),
       );
 
-      await _supabaseService.insertTradeRecord(tradeRecord);
+      await _storageService.insertTradeRecord(tradeRecord);
 
       // 포트폴리오 업데이트는 옵션에 따라 처리
       if (immediatePortfolioUpdate) {
@@ -319,10 +319,10 @@ class PriceSimulationService {
       }
 
       // 사용자 정보 업데이트
-      await _supabaseService.updateUser(_currentUser);
+      await _storageService.updateUser(_currentUser);
       
       // 거래 기록만 새로고침
-      _tradeRecords = await _supabaseService.getTradeRecordsByUserId(_currentUser.id);
+      _tradeRecords = await _storageService.getTradeRecordsByUserId(_currentUser.id);
       _tradeRecordsController.add(_tradeRecords);
       
       _userController.add(_currentUser);
@@ -374,7 +374,7 @@ class PriceSimulationService {
         updatedAt: DateTime.now(),
       );
       
-      await _supabaseService.updatePortfolio(portfolioToSave);
+      await _storageService.updatePortfolio(portfolioToSave);
     } else {
       // 새 포트폴리오 생성
       portfolioToSave = Portfolio(
@@ -393,7 +393,7 @@ class PriceSimulationService {
         updatedAt: DateTime.now(),
       );
       
-      await _supabaseService.insertPortfolio(portfolioToSave);
+      await _storageService.insertPortfolio(portfolioToSave);
     }
     
     return portfolioToSave;
@@ -434,7 +434,7 @@ class PriceSimulationService {
       // 포트폴리오 업데이트 또는 삭제
       if (portfolio.quantity == quantity) {
         // 전량 매도
-        await _supabaseService.deletePortfolio(portfolio.id);
+        await _storageService.deletePortfolio(portfolio.id);
       } else {
         // 부분 매도
         final remainingQuantity = portfolio.quantity - quantity;
@@ -449,7 +449,7 @@ class PriceSimulationService {
           updatedAt: DateTime.now(),
         );
         
-        await _supabaseService.updatePortfolio(updatedPortfolio);
+        await _storageService.updatePortfolio(updatedPortfolio);
       }
 
       // 거래 기록 생성
@@ -470,7 +470,7 @@ class PriceSimulationService {
         tradeDate: DateTime.now(),
       );
 
-      await _supabaseService.insertTradeRecord(tradeRecord);
+      await _storageService.insertTradeRecord(tradeRecord);
 
       // 로컬 데이터 업데이트 및 스트림 전송
       await _loadUserData(); // 데이터 새로고침
@@ -478,7 +478,7 @@ class PriceSimulationService {
       // 사용자 자산 정보 업데이트 (실현된 수익 포함)
       _updateUserAssets();
       
-      await _supabaseService.updateUser(_currentUser);
+      await _storageService.updateUser(_currentUser);
 
       print('매도 완료: ${product.name} ${quantity.round()}개');
       return true;

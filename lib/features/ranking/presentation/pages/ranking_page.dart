@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/price_simulation_service.dart';
-import '../../../../core/database/supabase_service.dart';
+import '../../../../core/database/local_storage_service.dart';
 import '../../../../core/models/user.dart' as app_user;
 
 class RankingPage extends StatefulWidget {
@@ -16,7 +16,7 @@ class RankingPage extends StatefulWidget {
 
 class _RankingPageState extends State<RankingPage> {
   final PriceSimulationService _priceService = PriceSimulationService();
-  final SupabaseService _supabaseService = GetIt.instance<SupabaseService>();
+  final LocalStorageService _storageService = GetIt.instance<LocalStorageService>();
   final _currencyFormat = NumberFormat('#,###', 'ko_KR');
   List<app_user.User> _users = [];
   bool _isLoading = true;
@@ -52,19 +52,19 @@ class _RankingPageState extends State<RankingPage> {
     }
 
     try {
-      // Supabase에서 모든 사용자 데이터 가져오기
-      final allUsers = await _supabaseService.getAllUsers();
-      
+      // 로컬 스토리지에서 모든 사용자 데이터 가져오기
+      final allUsers = await _storageService.getAllUsers();
+
       if (allUsers.isNotEmpty) {
         // 총 자산 기준으로 정렬 (높은 순서대로)
         allUsers.sort((a, b) => b.totalAssets.compareTo(a.totalAssets));
-        
+
         setState(() {
           _users = allUsers;
           _isLoading = false;
         });
       } else {
-        // DB에 사용자가 없는 경우 현재 사용자만 표시
+        // 로컬 스토리지에 사용자가 없는 경우 현재 사용자만 표시
         final currentUser = _priceService.currentUser;
         setState(() {
           _users = [currentUser];
@@ -72,8 +72,8 @@ class _RankingPageState extends State<RankingPage> {
         });
       }
     } catch (e) {
-      print('DB 랭킹 데이터 로드 실패: $e');
-      
+      print('로컬 스토리지 랭킹 데이터 로드 실패: $e');
+
       // 에러 발생 시 현재 사용자만 표시
       if (_users.isEmpty) {
         final currentUser = _priceService.currentUser;

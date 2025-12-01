@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
@@ -16,49 +13,38 @@ import 'features/investment/presentation/bloc/investment_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 환경 변수 설정 (웹에서는 직접 하드코딩)
-  String supabaseUrl = 'https://uzkqhrhgbxmhnocnolbb.supabase.co';
-  String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a3FocmhnYnhtaG5vY25vbGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MDY0MjksImV4cCI6MjA3MDA4MjQyOX0.-pSc4RNntAQK4Y32kykMtXpY8i7Yb8XzRaWw67nFTf8';
-  
-  // .env 파일이 있다면 로드 시도
-  try {
-    await dotenv.load(fileName: ".env");
-    supabaseUrl = dotenv.env['SUPABASE_URL'] ?? supabaseUrl;
-    supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? supabaseAnonKey;
-    print('환경 파일 로드 성공');
-  } catch (e) {
-    print('환경 파일 로드 실패, 기본값 사용: $e');
-  }
-  
-  // Supabase 초기화
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
-  );
-  
+
+  // DI 설정
   await configureDependencies();
-  
+
   // 가격 시뮬레이션 서비스 초기화
   PriceSimulationService().initialize();
-  
-  // 기존 로그인 사용자가 있다면 PriceSimulationService에 설정
-  await _initializeExistingUser();
-  
+
+  // 게스트 사용자 자동 생성 및 게임 시작
+  await _initializeGuestUser();
+
   runApp(const SeogwipoInvestmentApp());
 }
 
-Future<void> _initializeExistingUser() async {
+Future<void> _initializeGuestUser() async {
   try {
     final authService = GetIt.instance<AuthService>();
+
+    // 기존 로그인 사용자가 있는지 확인
     if (authService.isLoggedIn()) {
       final user = await authService.getCurrentUser();
       if (user != null) {
         PriceSimulationService().setUser(user);
+        print('기존 사용자 복원: ${user.displayName}');
+        return;
       }
     }
+
+    // 로그인된 사용자가 없으면 게스트 사용자 생성
+    final guestUser = await authService.createGuestUser();
+    print('게임 시작: ${guestUser.displayName}');
   } catch (e) {
-    print('기존 사용자 초기화 실패: $e');
+    print('사용자 초기화 실패: $e');
   }
 }
 

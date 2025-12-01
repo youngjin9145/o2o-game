@@ -2,14 +2,14 @@ import 'package:get_it/get_it.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/repositories/investment_repository.dart';
-import '../../../../core/database/supabase_service.dart';
+import '../../../../core/database/local_storage_service.dart';
 import '../../../../core/models/portfolio.dart';
 import '../../../../core/models/trade_record.dart';
 import '../../../../core/services/price_simulation_service.dart';
 
 class InvestmentRepositoryImpl implements InvestmentRepository {
   final PriceSimulationService _priceService = PriceSimulationService();
-  final SupabaseService _supabaseService = GetIt.instance<SupabaseService>();
+  final LocalStorageService _storageService = GetIt.instance<LocalStorageService>();
 
   @override
   Future<List<Map<String, dynamic>>> getInvestmentProducts() async {
@@ -29,11 +29,11 @@ class InvestmentRepositoryImpl implements InvestmentRepository {
         throw Exception('구매에 실패했습니다. 잔액이 부족하거나 오류가 발생했습니다.');
       }
       
-      // 2. Supabase에 데이터 저장
+      // 2. 로컬 스토리지에 데이터 저장
       final currentUser = _priceService.currentUser;
       final product = _priceService.products.firstWhere((p) => p.id == productId);
       final quantity = amount / product.currentPrice;
-      
+
       // 거래 기록 생성
       final tradeRecord = TradeRecord(
         id: _generateId(),
@@ -48,17 +48,17 @@ class InvestmentRepositoryImpl implements InvestmentRepository {
         totalAmount: amount,
         tradeDate: DateTime.now(),
       );
-      
-      // Supabase에 저장 시도
+
+      // 로컬 스토리지에 저장 시도
       try {
-        await _supabaseService.insertTradeRecord(tradeRecord);
-        print('Supabase에 거래 기록 저장 성공: ${tradeRecord.productName}');
-        
+        await _storageService.insertTradeRecord(tradeRecord);
+        print('로컬 스토리지에 거래 기록 저장 성공: ${tradeRecord.productName}');
+
         // 포트폴리오 업데이트
         await _updateOrCreatePortfolio(currentUser.id, productId, quantity, product.currentPrice, amount);
       } catch (e) {
-        print('Supabase 저장 실패, 로쫀에만 저장: $e');
-        // 에러가 나도 로쫀에는 이미 저장되었으므로 계속 진행
+        print('로컬 스토리지 저장 실패: $e');
+        // 에러가 나도 로컬에는 이미 저장되었으므로 계속 진행
       }
       
     } catch (e) {
@@ -74,14 +74,14 @@ class InvestmentRepositoryImpl implements InvestmentRepository {
     double totalAmount,
   ) async {
     try {
-      final existingPortfolio = await _supabaseService.getPortfolioByUserAndProduct(userId, productId);
-      
+      final existingPortfolio = await _storageService.getPortfolioByUserAndProduct(userId, productId);
+
       if (existingPortfolio != null) {
         // 기존 포트폴리오 업데이트
         final newQuantity = existingPortfolio.quantity + quantity;
         final newTotalInvestment = existingPortfolio.totalInvestment + totalAmount;
         final newAveragePrice = newTotalInvestment / newQuantity;
-        
+
         final updatedPortfolio = existingPortfolio.copyWith(
           quantity: newQuantity,
           averagePrice: newAveragePrice,
@@ -92,8 +92,8 @@ class InvestmentRepositoryImpl implements InvestmentRepository {
           lastPurchaseAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        
-        await _supabaseService.updatePortfolio(updatedPortfolio);
+
+        await _storageService.updatePortfolio(updatedPortfolio);
       } else {
         // 새 포트폴리오 생성
         final newPortfolio = Portfolio(
@@ -111,8 +111,8 @@ class InvestmentRepositoryImpl implements InvestmentRepository {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        
-        await _supabaseService.insertPortfolio(newPortfolio);
+
+        await _storageService.insertPortfolio(newPortfolio);
       }
     } catch (e) {
       print('포트폴리오 업데이트 실패: $e');
